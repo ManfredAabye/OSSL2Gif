@@ -50,6 +50,7 @@ Mit OSSL2Gif kannst du animierte GIFs einfach in Texturen für Second Life/OpenS
   ```bash
   python main.py
   ```
+- Unter Release gibt es ein fertiges Programm welches unter Windows 11 erstellt wurde.
 
 ## Bedienung
 
@@ -71,3 +72,4 @@ Mit OSSL2Gif kannst du animierte GIFs einfach in Texturen für Second Life/OpenS
 - Bei Problemen: Stelle sicher, dass du Python 3.13 verwendest und alle Pakete installiert sind.
 
 ---
+
