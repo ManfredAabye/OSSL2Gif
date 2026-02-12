@@ -28,6 +28,10 @@ class ModernApp:
         self.image_height = 2048
         self.root.title("OSSL2Gif")
         self.root.geometry("1280x1050")
+        try:
+            self.root.iconbitmap("icon.ico")
+        except Exception:
+            pass  # Icon laden ignorieren, falls Datei fehlt oder Fehler
         if THEME_AVAILABLE and tb is not None:
             tb.Style("superhero")
         self.build_layout()
@@ -65,14 +69,17 @@ class ModernApp:
 
         # --- Status-Gruppe ist die letzte Gruppe im Programmfenster ---
         self.status_group = ttk.LabelFrame(main, text=tr('status', self.lang) or "Status")
-        self.status_group.pack(fill=tk.X, side=tk.BOTTOM, padx=10, pady=(2,8)) # Status Gruppe Gruppenpositionierung?
+        self.status_group.pack(fill=tk.X, side=tk.BOTTOM, padx=10, pady=(12,8)) # Status Gruppe Gruppenpositionierung?
         self.status = ttk.Label(self.status_group, text=tr('ready', self.lang) or "Bereit", anchor="w")
         self.status.pack(fill=tk.X)
 
         # --- Datei-Gruppe ist die vorletzte Gruppe im Programmfenster ---
         self.file_group = ttk.LabelFrame(main, text=tr('file', self.lang) or "Datei")
-        self.file_group.pack(fill=tk.X, side=tk.BOTTOM, padx=10, pady=(2,2))
-        self.load_btn = ttk.Button(self.file_group, text=tr('load_gif', self.lang) or "GIF laden", command=self.load_gif)
+        self.file_group.pack(fill=tk.X, side=tk.BOTTOM, padx=10, pady=(12,2))
+        if THEME_AVAILABLE and tb is not None:
+            self.load_btn = tb.Button(self.file_group, text=tr('load_gif', self.lang) or "GIF laden", command=self.load_gif, bootstyle="success")
+        else:
+            self.load_btn = tk.Button(self.file_group, text=tr('load_gif', self.lang) or "GIF laden", command=self.load_gif, bg="#4CAF50", fg="white", activebackground="#388E3C", activeforeground="white")
         self.load_btn.pack(side=tk.LEFT, padx=2, pady=2)
         self.save_gif_btn = ttk.Button(self.file_group, text=tr('save_gif', self.lang) or "GIF speichern", command=self.save_gif)
         self.save_gif_btn.pack(side=tk.LEFT, padx=2, pady=2)
@@ -80,10 +87,16 @@ class ModernApp:
         self.save_texture_btn.pack(side=tk.LEFT, padx=2, pady=2)
         self.export_lsl_btn = ttk.Button(self.file_group, text=tr('export_lsl', self.lang) or "LSL exportieren", command=self.export_lsl)
         self.export_lsl_btn.pack(side=tk.LEFT, padx=2, pady=2)
+        # Clear Button
+        if THEME_AVAILABLE and tb is not None:
+            self.clear_btn = tb.Button(self.file_group, text=tr('clear', self.lang) or "", command=self.clear_texture, bootstyle="danger")
+        else:
+            self.clear_btn = tk.Button(self.file_group, text=tr('clear', self.lang) or "", command=self.clear_texture, bg="#d32f2f", fg="white", activebackground="#b71c1c", activeforeground="white")
+        self.clear_btn.pack(side=tk.LEFT, padx=2, pady=2)
 
         # --- Master Einstellungen ---
         self.master_group = ttk.LabelFrame(main, text=tr('master_settings', self.lang) or "Master Einstellungen")
-        self.master_group.pack(fill=tk.X, side=tk.BOTTOM, padx=10, pady=(8,2)) # Master Einstellung Gruppenpositionierung?
+        self.master_group.pack(fill=tk.X, side=tk.BOTTOM, padx=10, pady=(12,2)) # Master Einstellung Gruppenpositionierung?
         # Bildgröße
         size_frame = ttk.Frame(self.master_group)
         size_frame.pack(side=tk.LEFT, padx=5)
@@ -97,14 +110,13 @@ class ModernApp:
         self.height_entry.pack(side=tk.LEFT, padx=2)
         self.width_entry.bind('<FocusOut>', lambda e: self.update_previews()) # Bildgröße-Änderung automatisch Vorschau aktualisieren
         self.height_entry.bind('<FocusOut>', lambda e: self.update_previews()) # Bildgröße-Änderung automatisch Vorschau aktualisieren
+# clear entfernt
         # Randlos-Checkbox
         self.borderless_var = tk.IntVar(value=0)
         self.borderless_var.trace_add('write', lambda *args: self.update_previews()) # Randlos-Änderung automatisch Vorschau aktualisieren
         self.borderless_chk = ttk.Checkbutton(self.master_group, text=tr('borderless', self.lang) or "", variable=self.borderless_var, command=self.update_previews)
         self.borderless_chk.pack(side=tk.LEFT, padx=10)
-        # Clear Button
-        self.clear_btn = ttk.Button(size_frame, text=tr('clear', self.lang) or "", command=self.clear_texture)
-        self.clear_btn.pack(side=tk.LEFT, padx=8)
+
         # Sprache
         lang_frame = ttk.Frame(self.master_group)
         lang_frame.pack(side=tk.LEFT, padx=15)
@@ -175,21 +187,37 @@ class ModernApp:
         self.__dict__[f'{prefix}_sharpen'] = tk.IntVar()
         self.__dict__[f'{prefix}_blur'] = tk.IntVar()
         self.__dict__[f'{prefix}_transparency'] = tk.IntVar()
-        self.__dict__[f'{prefix}_sharpen_value'] = tk.DoubleVar(value=1.0)
-        self.__dict__[f'{prefix}_blur_value'] = tk.DoubleVar(value=0.0)
+        self.__dict__[f'{prefix}_transparency_value'] = tk.DoubleVar(value=0.5)
+        self.__dict__[f'{prefix}_sharpen_value'] = tk.DoubleVar(value=2.5)
+        self.__dict__[f'{prefix}_blur_value'] = tk.DoubleVar(value=3.5)
         ttk.Checkbutton(frame, text=tr('effect_grayscale', self.lang) or "", variable=self.__dict__[f'{prefix}_grayscale'], command=self.update_previews).pack(anchor="w")
         # Schärfen
         sharpen_row = ttk.Frame(frame)
         sharpen_row.pack(fill=tk.X, pady=1)
         ttk.Checkbutton(sharpen_row, text=tr('effect_sharpen', self.lang) or "", variable=self.__dict__[f'{prefix}_sharpen'], command=self.update_previews).pack(side=tk.LEFT)
-        ttk.Scale(sharpen_row, from_=0.5, to=5.0, orient=tk.HORIZONTAL, variable=self.__dict__[f'{prefix}_sharpen_value'], command=lambda e: self.update_previews(), length=200).pack(side=tk.LEFT, padx=5)
+        sharpen_scale = ttk.Scale(sharpen_row, from_=0.5, to=5.0, orient=tk.HORIZONTAL, variable=self.__dict__[f'{prefix}_sharpen_value'], command=lambda e: self.update_previews(), length=200)
+        sharpen_scale.pack(side=tk.LEFT, padx=5)
+        sharpen_value_label = ttk.Label(sharpen_row, textvariable=self.__dict__[f'{prefix}_sharpen_value'], width=4)
+        sharpen_value_label.pack(side=tk.LEFT, padx=(5,0))
         # Weichzeichnen
         blur_row = ttk.Frame(frame)
         blur_row.pack(fill=tk.X, pady=1)
         ttk.Checkbutton(blur_row, text=tr('effect_blur', self.lang) or "", variable=self.__dict__[f'{prefix}_blur'], command=self.update_previews).pack(side=tk.LEFT)
-        ttk.Scale(blur_row, from_=0.0, to=10.0, orient=tk.HORIZONTAL, variable=self.__dict__[f'{prefix}_blur_value'], command=lambda e: self.update_previews(), length=200).pack(side=tk.LEFT, padx=5)
+        blur_scale = ttk.Scale(blur_row, from_=0.0, to=10.0, orient=tk.HORIZONTAL, variable=self.__dict__[f'{prefix}_blur_value'], command=lambda e: self.update_previews(), length=200)
+        blur_scale.pack(side=tk.LEFT, padx=5)
+        blur_value_label = ttk.Label(blur_row, textvariable=self.__dict__[f'{prefix}_blur_value'], width=4)
+        blur_value_label.pack(side=tk.LEFT, padx=(5,0))
         # Transparenz
-        ttk.Checkbutton(frame, text=tr('effect_transparency', self.lang) or "", variable=self.__dict__[f'{prefix}_transparency'], command=self.update_previews).pack(anchor="w")
+        transparency_row = ttk.Frame(frame)
+        transparency_row.pack(fill=tk.X, pady=1)
+        transparency_label = tr('effect_transparency', self.lang)
+        if not transparency_label:
+            transparency_label = "Transparenz"
+        ttk.Checkbutton(transparency_row, text=transparency_label, variable=self.__dict__[f'{prefix}_transparency'], command=self.update_previews).pack(side=tk.LEFT)
+        transparency_scale = ttk.Scale(transparency_row, from_=0.0, to=1.0, orient=tk.HORIZONTAL, variable=self.__dict__[f'{prefix}_transparency_value'], command=lambda e: self.update_previews(), length=200)
+        transparency_scale.pack(side=tk.LEFT, padx=5)
+        transparency_value_label = ttk.Label(transparency_row, textvariable=self.__dict__[f'{prefix}_transparency_value'], width=4)
+        transparency_value_label.pack(side=tk.LEFT, padx=(5,0))
         return frame
 
 
@@ -219,7 +247,6 @@ class ModernApp:
         for prefix in ("gif", "texture"):
             panel = getattr(self, f"{prefix}_settings")
             panel.config(text=tr(f'{prefix}_settings', l) or "")
-            # Nur Checkbuttons direkt updaten, keine Slider/Frames
             children = panel.winfo_children()
             idx = 0
             # Graustufen-Checkbutton
@@ -240,9 +267,12 @@ class ModernApp:
                 if isinstance(blur_btn, ttk.Checkbutton):
                     blur_btn.config(text=tr('effect_blur', l) or "")
             idx += 1
-            # Transparenz-Checkbutton
-            if idx < len(children) and isinstance(children[idx], ttk.Checkbutton):
-                children[idx].config(text=tr('effect_transparency', l) or "")
+            # Transparenz-Frame (enthält Checkbutton und Slider)
+            if idx < len(children):
+                transparency_row = children[idx]
+                transparency_btn = transparency_row.winfo_children()[0]
+                if isinstance(transparency_btn, ttk.Checkbutton):
+                    transparency_btn.config(text=tr('effect_transparency', l) or "")
 
 
     def change_language(self, event=None):
@@ -388,7 +418,9 @@ class ModernApp:
                 img = img.filter(ImageFilter.GaussianBlur(radius))
         # Transparenz
         if self.__dict__[f'{prefix}_transparency'].get():
-            alpha = img.split()[-1].point(lambda p: p//2)
+            value = self.__dict__[f'{prefix}_transparency_value'].get()
+            # value: 0.0 (voll transparent) bis 1.0 (keine Änderung)
+            alpha = img.split()[-1].point(lambda p: int(p * value))
             img.putalpha(alpha)
         return img
 
