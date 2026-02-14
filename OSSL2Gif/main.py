@@ -1,3 +1,6 @@
+# OSSL2Gif - Ein Tool zum Konvertieren von GIF-Animationen in Texturen für OpenSimulator, Second Life und andere.
+# Version 1.0.6 © 2025 by Manfred Zainhofer
+
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
@@ -10,8 +13,46 @@ try:
 except ImportError:
     tb = None
     THEME_AVAILABLE = False
+    import ctypes
+    import locale
 
-LANGUAGES = ['de', 'en', 'fr', 'es']
+    def get_keyboard_layout():
+        # Windows-spezifisch: Tastaturlayout ermitteln
+        user32 = ctypes.WinDLL('user32', use_last_error=True)
+        hWnd = user32.GetForegroundWindow()
+        thread_id = user32.GetWindowThreadProcessId(hWnd, 0)
+        klid = user32.GetKeyboardLayout(thread_id)
+        # Die unteren 16 Bit enthalten die Sprachkennung (LANGID)
+        lid = klid & 0xFFFF
+        # Sprachcode (z.B. 0x407 = Deutsch, 0x409 = Englisch)
+        lang_map = {
+            0x407: 'de',
+            0x409: 'en',
+            0x40c: 'fr',
+            0x410: 'it',
+            0x419: 'ru',
+            0x40a: 'es',
+            0x413: 'nl',
+            0x41d: 'se',
+            0x415: 'pl',
+            0x816: 'pt'
+            # Weitere Codes nach Bedarf ergänzen
+        }
+        return lang_map.get(lid, f'unknown({lid})')
+
+    def get_system_language():
+        # Systemweite Sprache ermitteln
+        lang, _ = locale.getdefaultlocale()
+        return lang
+
+    # Voreinstellungen setzen
+    DEFAULT_KEYBOARD_LAYOUT = get_keyboard_layout()
+    DEFAULT_LANGUAGE = get_system_language()
+
+    print(f"Tastaturlayout erkannt: {DEFAULT_KEYBOARD_LAYOUT}")
+    print(f"Systemsprache erkannt: {DEFAULT_LANGUAGE}")
+
+LANGUAGES = ['de', 'en', 'fr', 'es', 'it', 'ru', 'nl', 'se', 'pl', 'pt']
 
 class ModernApp:
     def __init__(self, root):
@@ -76,6 +117,15 @@ class ModernApp:
         # --- Datei-Gruppe ist die vorletzte Gruppe im Programmfenster ---
         self.file_group = ttk.LabelFrame(main, text=tr('file', self.lang) or "Datei")
         self.file_group.pack(fill=tk.X, side=tk.BOTTOM, padx=10, pady=(12,2))
+        # Exportformat Combobox jetzt in Datei-Gruppe
+        export_format_frame = ttk.Frame(self.file_group)
+        export_format_frame.pack(side=tk.LEFT, padx=15)
+        self.export_format_label = ttk.Label(export_format_frame, text=tr('export_format', self.lang) or "Exportformat:")
+        self.export_format_label.pack(side=tk.LEFT)
+        self.export_format_var = tk.StringVar(value="PNG")
+        self.export_format_combo = ttk.Combobox(export_format_frame, values=["PNG", "JPG", "BMP"], textvariable=self.export_format_var, width=5, state="readonly")
+        self.export_format_combo.pack(side=tk.LEFT)
+        # Datei-Buttons: Laden, Speichern, Exportieren, Clear
         if THEME_AVAILABLE and tb is not None:
             self.load_btn = tb.Button(self.file_group, text=tr('load_gif', self.lang) or "GIF laden", command=self.load_gif, bootstyle="success")
         else:
@@ -89,15 +139,44 @@ class ModernApp:
         self.export_lsl_btn.pack(side=tk.LEFT, padx=2, pady=2)
         # Clear Button
         if THEME_AVAILABLE and tb is not None:
-            self.clear_btn = tb.Button(self.file_group, text=tr('clear', self.lang) or "", command=self.clear_texture, bootstyle="danger")
+            style = tb.Style()
+            style.configure("RedClear.TButton", background="#e53935", foreground="white")
+            self.clear_btn = tb.Button(self.file_group, text=tr('clear', self.lang) or "", command=self.clear_texture, style="RedClear.TButton")
         else:
-            self.clear_btn = tk.Button(self.file_group, text=tr('clear', self.lang) or "", command=self.clear_texture, bg="#d32f2f", fg="white", activebackground="#b71c1c", activeforeground="white")
+            self.clear_btn = tk.Button(self.file_group, text=tr('clear', self.lang) or "", command=self.clear_texture, bg="#e53935", fg="white", activebackground="#b71c1c", activeforeground="white")
         self.clear_btn.pack(side=tk.LEFT, padx=2, pady=2)
 
-        # Reset-Button für alle Einstellungen
-        # self.reset_btn = ttk.Button(self.file_group, text="Reset", command=self.reset_settings)
-        # self.reset_btn.pack(side=tk.LEFT, padx=8)
-
+        # --- Media Gruppe (vor Master Einstellungen) ---
+        self.media_group = ttk.LabelFrame(main, text="Media")
+        self.media_group.pack(fill=tk.X, side=tk.BOTTOM, padx=10, pady=(12,2))
+        media_row = ttk.Frame(self.media_group)
+        media_row.pack(fill=tk.X)
+        self.playing = False
+        # Media Control Buttons: Rückwärts, Pause, Play, Stop, Vorwärts
+        if THEME_AVAILABLE and tb is not None:
+            # Eigene Styles für Pastellfarben anlegen
+            style = tb.Style()
+            style.configure("PastellPrev.TButton", background="#B39DDB", foreground="black")
+            style.configure("PastellPause.TButton", background="#90CAF9", foreground="black")
+            style.configure("PastellPlay.TButton", background="#A5D6A7", foreground="black")
+            style.configure("PastellStop.TButton", background="#EF9A9A", foreground="black")
+            style.configure("PastellNext.TButton", background="#FFF59D", foreground="black")
+            self.prev_btn = tb.Button(media_row, text="⏮", command=self.step_backward, style="PastellPrev.TButton")
+            self.pause_btn = tb.Button(media_row, text="⏸", command=self.pause_animation, style="PastellPause.TButton")
+            self.play_btn = tb.Button(media_row, text="▶", command=self.start_animation, style="PastellPlay.TButton")
+            self.stop_btn = tb.Button(media_row, text="⏹", command=self.stop_animation, style="PastellStop.TButton")
+            self.next_btn = tb.Button(media_row, text="⏭", command=self.step_forward, style="PastellNext.TButton")
+        else:
+            self.prev_btn = tk.Button(media_row, text="⏮", command=self.step_backward, bg="#B39DDB", fg="black", activebackground="#D1C4E9", activeforeground="black")
+            self.pause_btn = tk.Button(media_row, text="⏸", command=self.pause_animation, bg="#90CAF9", fg="black", activebackground="#BBDEFB", activeforeground="black")
+            self.play_btn = tk.Button(media_row, text="▶", command=self.start_animation, bg="#A5D6A7", fg="black", activebackground="#C8E6C9", activeforeground="black")
+            self.stop_btn = tk.Button(media_row, text="⏹", command=self.stop_animation, bg="#EF9A9A", fg="black", activebackground="#FFCDD2", activeforeground="black")
+            self.next_btn = tk.Button(media_row, text="⏭", command=self.step_forward, bg="#FFF59D", fg="black", activebackground="#FFF9C4", activeforeground="black")
+        self.prev_btn.pack(side=tk.LEFT, padx=4)
+        self.pause_btn.pack(side=tk.LEFT, padx=4)
+        self.play_btn.pack(side=tk.LEFT, padx=4)
+        self.stop_btn.pack(side=tk.LEFT, padx=4)
+        self.next_btn.pack(side=tk.LEFT, padx=4)
 
         # --- Master Einstellungen ---
         self.master_group = ttk.LabelFrame(main, text=tr('master_settings', self.lang) or "Master Einstellungen")
@@ -106,10 +185,21 @@ class ModernApp:
         master_row1 = ttk.Frame(self.master_group)
         master_row1.pack(fill=tk.X)
         # Bildgröße
+        # Pastellfarben für Master-Einstellungen
+        pastel_master = {
+            'size':        "#01988B", # Türkis
+            'bg':          "#AF9E03", # Gelb
+            'borderless':  "#FE0090", # Rosa
+            'framerate':   "#008AFB", # Blau
+            'lang':        '#B39DDB', # Lila
+            'maxframes':   "#00E308", # Grün
+            'reset':       "#EA5151", # Rot
+        }
+
         size_frame = ttk.Frame(master_row1)
         size_frame.pack(side=tk.LEFT, padx=5)
-        self.size_label = ttk.Label(size_frame, text="Bildgröße:")
-        self.size_label.pack(side=tk.LEFT)
+        self.size_label = ttk.Label(size_frame, text="Bildgröße:", background="#e0f7fa", foreground="black", relief=tk.FLAT, borderwidth=1, width=14, anchor="center", font=("Segoe UI", 10))
+        self.size_label.pack(side=tk.LEFT, padx=4, pady=4, ipady=6)
         self.width_var = tk.IntVar(value=self.image_width)
         self.height_var = tk.IntVar(value=self.image_height)
         self.width_entry = ttk.Entry(size_frame, textvariable=self.width_var, width=5)
@@ -118,27 +208,36 @@ class ModernApp:
         self.height_entry.pack(side=tk.LEFT, padx=2)
         self.width_entry.bind('<FocusOut>', lambda e: self.update_previews())
         self.height_entry.bind('<FocusOut>', lambda e: self.update_previews())
+
         # Hintergrundfarbe für Textur/GIF
         self.bg_color = "#00000000"
         self.bg_box_color = "#000000"
         bg_frame = ttk.Frame(master_row1)
         bg_frame.pack(side=tk.LEFT, padx=15)
-        self.bg_label = ttk.Label(bg_frame, text=tr('bg_color', self.lang) or "Hintergrundfarbe:")
-        self.bg_label.pack(side=tk.LEFT)
+        self.bg_label = ttk.Label(bg_frame, text=tr('bg_color', self.lang) or "Hintergrundfarbe:", background="#fff9c4", foreground="black", relief=tk.FLAT, borderwidth=1, width=18, anchor="center", font=("Segoe UI", 10))
+        self.bg_label.pack(side=tk.LEFT, padx=4, pady=4, ipady=6)
         self.bg_color_box = tk.Label(bg_frame, width=3, relief=tk.SUNKEN, bg=self.bg_box_color, cursor="hand2")
         self.bg_color_box.pack(side=tk.LEFT, padx=2)
         self.bg_color_box.bind("<Button-1>", self.choose_bg_color)
+
         # Randlos-Checkbox
         self.borderless_var = tk.IntVar(value=0)
         self.borderless_var.trace_add('write', lambda *args: self.update_previews())
         self.borderless_chk = ttk.Checkbutton(master_row1, text=tr('borderless', self.lang) or "", variable=self.borderless_var, command=self.update_previews)
         self.borderless_chk.pack(side=tk.LEFT, padx=10)
+        try:
+            self.borderless_chk.configure(style="PastellBorderless.TCheckbutton")
+            style = ttk.Style()
+            style.configure("PastellBorderless.TCheckbutton", background=pastel_master['borderless'])
+        except Exception:
+            pass
+
         # Standard-Framerate für Textur/GIF (ms/Bild)
-        self.framerate_var = tk.IntVar(value=100)
+        self.framerate_var = tk.IntVar(value=10)
         framerate_frame = ttk.Frame(master_row1)
         framerate_frame.pack(side=tk.LEFT, padx=15)
-        self.framerate_label = ttk.Label(framerate_frame, text=tr('framerate', self.lang) or "Framerate:")
-        self.framerate_label.pack(side=tk.LEFT)
+        self.framerate_label = ttk.Label(framerate_frame, text=tr('framerate', self.lang) or "Framerate:", background="#bbdefb", foreground="black", relief=tk.FLAT, borderwidth=1, width=12, anchor="center", font=("Segoe UI", 10))
+        self.framerate_label.pack(side=tk.LEFT, padx=4, pady=4, ipady=6)
         self.framerate_spin = ttk.Spinbox(framerate_frame, from_=1, to=10000, increment=1, textvariable=self.framerate_var, width=6)
         self.framerate_spin.pack(side=tk.LEFT)
         # Zeile 2
@@ -146,54 +245,48 @@ class ModernApp:
         master_row2.pack(fill=tk.X)
         # Sprache
 
-
         spacer = ttk.Frame(self.master_group, height=10)
         spacer.pack(fill=tk.X)
         master_row2 = ttk.Frame(self.master_group)
         master_row2.pack(fill=tk.X)
 
-
         lang_frame = ttk.Frame(master_row2)
         lang_frame.pack(side=tk.LEFT, padx=15)
         if not hasattr(self, 'lang_label'):
-            self.lang_label = ttk.Label(lang_frame, text=tr('language', self.lang) or "")
+            self.lang_label = ttk.Label(lang_frame, text=tr('language', self.lang) or "", background="#eeec7d", foreground="black", relief=tk.FLAT, borderwidth=1, width=12, anchor="center", font=("Segoe UI", 10))
         else:
-            self.lang_label.config(text=tr('language', self.lang) or "")
-        self.lang_label.pack(side=tk.LEFT)
+            self.lang_label.config(text=tr('language', self.lang) or "", background="#eeec7d", foreground="black", relief=tk.FLAT, borderwidth=1, width=12, anchor="center", font=("Segoe UI", 10))
+        self.lang_label.pack(side=tk.LEFT, padx=4, pady=4, ipady=6)
         self.lang_var = tk.StringVar(value=self.lang)
         self.lang_combo = ttk.Combobox(lang_frame, values=LANGUAGES, textvariable=self.lang_var, width=6, state="readonly")
         self.lang_combo.pack(side=tk.LEFT)
         self.lang_combo.bind("<<ComboboxSelected>>", self.change_language)
-        # Play Button
-        self.playing = False
-        self.play_btn = ttk.Button(master_row2, text=tr('play', self.lang) or "", command=self.toggle_play)
-        self.play_btn.pack(side=tk.LEFT, padx=8)
+
         # Bildnummer-Auswahl und Add-Button
         self.frame_select_var = tk.IntVar(value=0)
         self.frame_select_spin = ttk.Spinbox(master_row2, from_=0, to=0, textvariable=self.frame_select_var, width=5, state="readonly")
         self.frame_select_spin.pack(side=tk.LEFT, padx=2)
         self.add_frame_btn = ttk.Button(master_row2, text=tr('add_frame', self.lang) or "", command=self.add_selected_frame_to_texture)
         self.add_frame_btn.pack(side=tk.LEFT, padx=2)
-        # Standard-Exportformat Combobox
-        export_format_frame = ttk.Frame(master_row2)
-        export_format_frame.pack(side=tk.LEFT, padx=15)
-        self.export_format_label = ttk.Label(export_format_frame, text=tr('export_format', self.lang) or "Exportformat:")
-        self.export_format_label.pack(side=tk.LEFT)
-        self.export_format_var = tk.StringVar(value="PNG")
-        self.export_format_combo = ttk.Combobox(export_format_frame, values=["PNG", "JPG", "BMP"], textvariable=self.export_format_var, width=5, state="readonly")
-        self.export_format_combo.pack(side=tk.LEFT)
+
         # Maximale Bildanzahl Spinbox
         maxframes_frame = ttk.Frame(master_row2)
         maxframes_frame.pack(side=tk.LEFT, padx=15)
-        self.maxframes_label = ttk.Label(maxframes_frame, text=tr('max_images', self.lang) or "Max. Bilder:")
-        self.maxframes_label.pack(side=tk.LEFT)
+        self.maxframes_label = ttk.Label(maxframes_frame, text=tr('max_images', self.lang) or "Max. Bilder:", background="#c8e6c9", foreground="black", relief=tk.FLAT, borderwidth=1, width=14, anchor="center", font=("Segoe UI", 10))
+        self.maxframes_label.pack(side=tk.LEFT, padx=4, pady=4, ipady=6)
         self.maxframes_var = tk.IntVar(value=64)
         self.maxframes_spin = ttk.Spinbox(maxframes_frame, from_=1, to=1024, increment=1, textvariable=self.maxframes_var, width=5, state="readonly")
         self.maxframes_spin.pack(side=tk.LEFT)
         self.maxframes_spin.bind('<FocusOut>', lambda e: self.on_maxframes_changed())
         self.maxframes_var.trace_add('write', self.on_maxframes_changed)
+
         # Reset-Button für alle Einstellungen
-        self.reset_btn = ttk.Button(master_row2, text="Reset", command=self.reset_settings)
+        if THEME_AVAILABLE and tb is not None:
+            style = tb.Style()
+            style.configure("RedReset.TButton", background="#e53935", foreground="white")
+            self.reset_btn = tb.Button(master_row2, text="Reset", command=self.reset_settings, style="RedReset.TButton")
+        else:
+            self.reset_btn = tk.Button(master_row2, text="Reset", command=self.reset_settings, bg="#e53935", fg="white", activebackground="#b71c1c", activeforeground="white")
         self.reset_btn.pack(side=tk.LEFT, padx=8)
 
     def reset_settings(self):
@@ -204,7 +297,7 @@ class ModernApp:
         self.bg_box_color = "#000000"
         self.bg_color_box.config(bg=self.bg_box_color)
         self.borderless_var.set(0)
-        self.framerate_var.set(100)
+        self.framerate_var.set(10)
         self.export_format_var.set("PNG")
         self.maxframes_var.set(64)
         self.lang_var.set("de")
@@ -297,21 +390,45 @@ class ModernApp:
         self.update_previews()
 
 
-    def toggle_play(self):
-        self.playing = not self.playing
-        self.play_btn.config(text=(tr('pause', self.lang) or "") if self.playing else (tr('play', self.lang) or ""))
-        if self.playing:
-            self.start_animation()
-
 
     def start_animation(self):
+        if not self.gif_frames:
+            return
+        self.playing = True
+        self._run_animation()
+
+    def _run_animation(self):
         if not self.playing or not self.gif_frames:
             return
         self.current_frame = (self.current_frame + 1) % self.frame_count
         self.show_gif_frame()
-        # Delay aus Framerate-Spinbox übernehmen (ms/Bild)
         delay = self.framerate_var.get()
-        self.root.after(delay, self.start_animation)
+        self.root.after(delay, self._run_animation)
+
+    def pause_animation(self):
+        self.playing = False
+        # Play/Pause-Button immer auf "Abspielen" (Play) setzen, auch sprachabhängig
+        self.play_btn.config(text=tr('play', self.lang) or "Play ▶")
+
+    def stop_animation(self):
+        self.playing = False
+        self.current_frame = 0
+        self.show_gif_frame()
+        # Play/Pause-Button immer auf "Abspielen" (Play) setzen, auch sprachabhängig
+        self.play_btn.config(text=tr('play', self.lang) or "Play ▶")
+
+    def step_forward(self):
+        if not self.gif_frames:
+            return
+        self.current_frame = (self.current_frame + 1) % self.frame_count
+        self.show_gif_frame()
+
+    def step_backward(self):
+        if not self.gif_frames:
+            return
+        self.current_frame = (self.current_frame - 1) % self.frame_count
+        self.show_gif_frame()
+
 
 
     def create_effects_panel(self, parent, prefix):
@@ -472,7 +589,8 @@ class ModernApp:
         self.frame_count = len(self.gif_frames)
         self.current_frame = 0
         self.playing = False
-        self.play_btn.config(text="Play ▶")
+        # Play/Pause-Button immer auf "Abspielen" (Play) setzen, auch sprachabhängig
+        self.play_btn.config(text=tr('play', self.lang) or "Play ▶")
         # Max. Bilder automatisch auf Frame-Anzahl setzen
         self.maxframes_var.set(self.frame_count)
         # Spinbox für Bildnummern-Auswahl updaten
@@ -655,7 +773,7 @@ class ModernApp:
         tiles_y = math.ceil(frame_count / tiles_x)
         # Geschwindigkeit aus Framerate übernehmen (ms/Bild als float mit Komma)
         speed_val = self.framerate_var.get()
-        # Format wie '100;0' für 100ms
+        # Format wie '10;0' für 10sec
         speed = f"{speed_val};0"
         # Dateiendung und Filetype passend zum gewählten Exportformat
         ext = self.export_format_var.get().lower()
