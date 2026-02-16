@@ -1,4 +1,6 @@
 @echo off
+REM Arbeitsverzeichnis auf das Skriptverzeichnis setzen
+cd /d %~dp0
 REM Erstellt eine eigenständige EXE aus PyOSSL2Gif/main.py mit allen Abhängigkeiten
 REM Voraussetzung: Python, pip und pyinstaller müssen installiert sein
 
@@ -12,8 +14,8 @@ pip show pyinstaller >nul 2>&1
 if errorlevel 1 pip install pyinstaller
 
 REM EXE bauen (onefile, ohne Konsole, Icon optional)
-:: pyinstaller --noconfirm --onefile --windowed --name OSSL2Gif PyOSSL2Gif\main.py
-pyinstaller --noconfirm --onefile --windowed --name OSSL2Gif --icon=icon.ico PyOSSL2Gif\main.py
+:: pyinstaller --noconfirm --onefile --windowed --name OSSL2Gif OSSL2Gif\OSSL2Gif\main.py
+pyinstaller --noconfirm --onefile --windowed --name OSSL2Gif --icon=icon.ico OSSL2Gif\main.py
 
 
 REM Icon ins dist-Ordner kopieren (optional, falls EXE und Icon gemeinsam verteilt werden sollen)
