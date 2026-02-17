@@ -2,6 +2,7 @@
 
 Mit OSSL2Gif kannst du animierte GIFs einfach in Texturen für Second Life/OpenSim umwandeln – ganz ohne Programmierkenntnisse!
 
+**⚠️ ACHTUNG: VERALTETE VERSION**  Diese Version wird von der Version **2.0.1** abgelöst und nicht weiterentwickelt. 
 
 <img src="https://raw.githubusercontent.com/ManfredAabye/OSSL2Gif/refs/heads/main/logo003.png" alt="Project Badge" width="400">
 
@@ -75,5 +76,6 @@ Mit OSSL2Gif kannst du animierte GIFs einfach in Texturen für Second Life/OpenS
 - Bei Problemen: Stelle sicher, dass du Python 3.13 verwendest und alle Pakete installiert sind.
 
 ---
+
 
 
